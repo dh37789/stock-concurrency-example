@@ -48,7 +48,7 @@ class StockServiceTest {
     }
 
     @Test
-    void 동시에_100번_요청() throws InterruptedException {
+    void 동시에_100번_요청_by_synchronized() throws InterruptedException {
 
         // given
         int threadCount = 100;
@@ -59,7 +59,7 @@ class StockServiceTest {
         for (int i = 0; i < threadCount; i++) {
             executorService.submit(() -> {
                 try {
-                    stockService.decrease(1L, 1L);
+                    stockService.decreaseBySynchronized(1L, 1L);
                 } finally {
                     countDownLatch.countDown();
                 }
