@@ -1,6 +1,8 @@
 package com.mho.stock.service;
 
 import com.mho.stock.domain.Stock;
+import com.mho.stock.facade.NamedLockStockFacade;
+import com.mho.stock.facade.OptimisticLockStockFacade;
 import com.mho.stock.repository.StockRepository;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -25,6 +27,12 @@ class StockServiceTest {
 
     @Autowired
     private PessimisticLockStockService pessimisticLockStockService;
+
+    @Autowired
+    private OptimisticLockStockFacade optimisticLockStockFacade;
+
+    @Autowired
+    private NamedLockStockFacade namedLockStockFacade;
 
     @BeforeEach
     public void before() {
@@ -104,5 +112,60 @@ class StockServiceTest {
         assertThat(stock.getQuantity()).isEqualTo(0L);
     }
 
+    @Test
+    void 동시에_100번_요청_by_OptimisticLock() throws InterruptedException {
+
+        // given
+        int threadCount = 100;
+        ExecutorService executorService = Executors.newFixedThreadPool(32);
+        CountDownLatch countDownLatch = new CountDownLatch(threadCount);
+
+        // when
+        for (int i = 0; i < threadCount; i++) {
+            executorService.submit(() -> {
+                try {
+                    optimisticLockStockFacade.decrease(1L, 1L);
+                } catch (InterruptedException e) {
+                    throw new RuntimeException(e);
+                } finally {
+                    countDownLatch.countDown();
+                }
+            });
+        }
+
+        countDownLatch.await();
+
+        Stock stock = stockRepository.findById(1L).orElseThrow();
+
+        // then
+        assertThat(stock.getQuantity()).isEqualTo(0L);
+    }
+
+    @Test
+    void 동시에_100번_요청_by_NamedLock() throws InterruptedException {
+
+        // given
+        int threadCount = 100;
+        ExecutorService executorService = Executors.newFixedThreadPool(32);
+        CountDownLatch countDownLatch = new CountDownLatch(threadCount);
+
+        // when
+        for (int i = 0; i < threadCount; i++) {
+            executorService.submit(() -> {
+                try {
+                    namedLockStockFacade.decrease(1L, 1L);
+                } finally {
+                    countDownLatch.countDown();
+                }
+            });
+        }
+
+        countDownLatch.await();
+
+        Stock stock = stockRepository.findById(1L).orElseThrow();
+
+        // then
+        assertThat(stock.getQuantity()).isEqualTo(0L);
+    }
 
 }
