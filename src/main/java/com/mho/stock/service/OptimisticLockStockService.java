@@ -3,8 +3,8 @@ package com.mho.stock.service;
 import com.mho.stock.domain.Stock;
 import com.mho.stock.repository.StockRepository;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
-import javax.transaction.Transactional;
 
 @Service
 public class OptimisticLockStockService {
