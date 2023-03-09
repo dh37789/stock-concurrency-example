@@ -1,8 +1,10 @@
 package com.mho.stock.service;
 
 import com.mho.stock.domain.Stock;
+import com.mho.stock.facade.LettuceLockStockFacade;
 import com.mho.stock.facade.NamedLockStockFacade;
 import com.mho.stock.facade.OptimisticLockStockFacade;
+import com.mho.stock.facade.RedissonLockStockFacade;
 import com.mho.stock.repository.StockRepository;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -33,6 +35,12 @@ class StockServiceTest {
 
     @Autowired
     private NamedLockStockFacade namedLockStockFacade;
+
+    @Autowired
+    private LettuceLockStockFacade lettuceLockStockFacade;
+
+    @Autowired
+    private RedissonLockStockFacade redissonLockStockFacade;
 
     @BeforeEach
     public void before() {
@@ -154,6 +162,62 @@ class StockServiceTest {
             executorService.submit(() -> {
                 try {
                     namedLockStockFacade.decrease(1L, 1L);
+                } finally {
+                    countDownLatch.countDown();
+                }
+            });
+        }
+
+        countDownLatch.await();
+
+        Stock stock = stockRepository.findById(1L).orElseThrow();
+
+        // then
+        assertThat(stock.getQuantity()).isEqualTo(0L);
+    }
+
+    @Test
+    void 동시에_100번_요청_by_LetturceLock() throws InterruptedException {
+
+        // given
+        int threadCount = 100;
+        ExecutorService executorService = Executors.newFixedThreadPool(32);
+        CountDownLatch countDownLatch = new CountDownLatch(threadCount);
+
+        // when
+        for (int i = 0; i < threadCount; i++) {
+            executorService.submit(() -> {
+                try {
+                    lettuceLockStockFacade.decrease(1L, 1L);
+                } catch (InterruptedException e) {
+                    throw new RuntimeException(e);
+                } finally {
+                    countDownLatch.countDown();
+                }
+            });
+        }
+
+        countDownLatch.await();
+
+        Stock stock = stockRepository.findById(1L).orElseThrow();
+
+        // then
+        assertThat(stock.getQuantity()).isEqualTo(0L);
+    }
+
+    @Test
+    void 동시에_100번_요청_by_RedissonLock() throws InterruptedException {
+
+        // given
+        int threadCount = 100;
+        ExecutorService executorService = Executors.newFixedThreadPool(32);
+        CountDownLatch countDownLatch = new CountDownLatch(threadCount);
+
+        // when
+        for (int i = 0; i < threadCount; i++) {
+            executorService.submit(() -> {
+                try {
+                    redissonLockStockFacade.decrease(1L, 1L);
                 } finally {
                     countDownLatch.countDown();
                 }
